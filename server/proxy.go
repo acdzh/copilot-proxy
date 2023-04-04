@@ -30,7 +30,7 @@ func main() {
 		start := time.Now()
 		ip := strings.Split(r.RemoteAddr, ":")[0]
 		proxy.ServeHTTP(w, r) // 将请求转发到目标 API
-		log.Printf("[%s]%s from %s, Completed in %v", r.Method, r.URL.Path, ip, time.Since(start))
+		log.Printf("[%s] %s from %s, Completed in %v", r.Method, r.URL.Path, ip, time.Since(start))
 	})
 	log.Println("server start at http://127.0.0.1:9394")
 	http.ListenAndServe(":9394", nil)
