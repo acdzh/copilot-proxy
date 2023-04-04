@@ -1,4 +1,3 @@
-
 const HOST = 'copilot-proxy.githubusercontent.com';
 
 export default {

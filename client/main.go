@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -11,7 +12,6 @@ import (
 
 var homeDir, _ = os.UserHomeDir()
 var GITHUB_COPILOT_API_HOST = "https://copilot-proxy.githubusercontent.com"
-var CLOUDFLARE_COPILOT_PROXY_API_HOST = "your self api host"
 
 var LAST_MODIFIED_API_HOST_PATH_SUFFIX = ".replaced_api_host.txt"
 
@@ -64,7 +64,7 @@ func rmLastModifiedApiHostWithJsPath(jsPath string) {
 	}
 }
 
-func modifyJsWithPath(jsPath string) {
+func modifyJsWithPath(jsPath, newApiHost string) {
 	jsContent, err := ioutil.ReadFile(jsPath)
 	if err != nil {
 		log.Fatal(err)
@@ -74,7 +74,6 @@ func modifyJsWithPath(jsPath string) {
 
 	// modify
 	lastModifiedApiHost := getLastModifiedApiHostWithJsPath(jsPath)
-	newApiHost := CLOUDFLARE_COPILOT_PROXY_API_HOST // 后续改为可以切换
 	var modifiedContentStr string = jsContentStr
 
 	// 预防漏网之鱼
@@ -187,20 +186,21 @@ func getJetBrainsPluginJsPathList() []string {
 }
 
 func main() {
-	args := os.Args
 
-	var isRecover = false
-	if len(args) > 1 {
-		if args[1] == "recover" || args[1] == "r" {
-			isRecover = true
-		}
-	}
+	// 定义命令行参数
+	isRecoverFlag := flag.Bool("r", false, "是否恢复原始 api 地址")
+	newApiHostFlag := flag.String("u", GITHUB_COPILOT_API_HOST, "你的 api 地址")
+	flag.Parse()
+
+	isRecover := *isRecoverFlag
+	newApiHost := strings.TrimRight(*newApiHostFlag, "/")
+
 	files := append(getVisualStudioCodeExtJsPathList(), getJetBrainsPluginJsPathList()...)
 	for _, file := range files {
 		if isRecover {
 			recoverJsWithPath(file)
 		} else {
-			modifyJsWithPath(file)
+			modifyJsWithPath(file, newApiHost)
 		}
 	}
 }
