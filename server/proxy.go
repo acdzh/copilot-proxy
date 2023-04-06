@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"math/rand"
+
 	// "crypto/tls"
 	"fmt"
 	"io/ioutil"
@@ -64,6 +66,47 @@ func (w *loggingResponseWriter) WriteHeader(statusCode int) {
 	w.statusCode = statusCode
 }
 
+func getBodyFromHttpRequest(r *http.Request) string {
+	if r.ContentLength > 0 {
+		reqBodyBytes, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			log.Fatal(err)
+			return "[no body]"
+		}
+		r.Body = ioutil.NopCloser(bytes.NewBuffer(reqBodyBytes))
+		return string(reqBodyBytes)
+	} else {
+		return "[no body]"
+	}
+}
+
+type ServerLogParams struct {
+	statusCode int
+	method     string
+	path       string
+	ip         string
+	reqHeader  map[string][]string
+	startTime  time.Time
+	reqBodyStr string
+	resBodyStr string
+}
+
+func serverLog(p ServerLogParams) {
+	log.Printf("\n")
+	log.Printf("%s %s %s to %s from %s, Completed in %v", colorYellow("--->"), func() string {
+		if p.statusCode == 200 {
+			return colorGreen(fmt.Sprintf("[%d]", p.statusCode))
+		} else {
+			return colorRed(fmt.Sprintf("[%d]", p.statusCode))
+		}
+	}(), colorBlue(fmt.Sprintf("[%s]", p.method)), colorYellow(p.path), colorBlue(p.ip), colorBlue(time.Since(p.startTime).String()))
+	log.Printf("     %s: %s", colorBlue("[header]"), colorGray(fmt.Sprintf("%v", p.reqHeader)))
+	if p.reqBodyStr != "[no body]" {
+		log.Printf("     %s: %s", colorBlue("[body]"), colorGray(p.reqBodyStr))
+	}
+	log.Printf("%s %s: %s", colorYellow("<---"), colorBlue("[body]"), colorGray(strings.ReplaceAll(p.resBodyStr, "\n\n", "\n")))
+}
+
 func main() {
 	// 如果你需要代理, 使用 transport 相关的这几行
 	// create transPort.
@@ -82,20 +125,39 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		ip := strings.Split(r.RemoteAddr, ":")[0]
+		reqBodyStr := getBodyFromHttpRequest(r)
 
-		reqBodyStr := func() string {
-			if r.ContentLength > 0 {
-				reqBodyBytes, err := ioutil.ReadAll(r.Body)
-				if err != nil {
-					log.Fatal(err)
-					return "[no body]"
+		// 不样扫描
+		if strings.Contains(r.Header.Get("User-Agent"), "SecurityScan-PoCScan") ||
+			r.Header.Get("X-Scan") != "" ||
+			r.Header.Get("X-Scan-Active") != "" ||
+			r.Header.Get("X-Scan-Token") != "" {
+			statusCode, resBodyStr := func() (int, string) {
+				random := rand.Intn(100)
+				if random <= 45 {
+					return http.StatusTeapot, "[418] Stop scanning, I'm a teapot 🫖."
+				} else if random <= 80 {
+					return http.StatusOK, "[200] Stop scanning, I'm not a teapot 🫖."
+				} else {
+					return http.StatusOK, "[???] Stop scanning, I'm an eggplant 🍆."
 				}
-				r.Body = ioutil.NopCloser(bytes.NewBuffer(reqBodyBytes))
-				return string(reqBodyBytes)
-			} else {
-				return "[no body]"
-			}
-		}()
+			}()
+
+			w.WriteHeader(statusCode)
+			w.Write([]byte(resBodyStr))
+
+			serverLog(ServerLogParams{
+				statusCode: statusCode,
+				method:     r.Method,
+				path:       r.URL.Path,
+				ip:         ip,
+				reqHeader:  r.Header,
+				startTime:  start,
+				reqBodyStr: reqBodyStr,
+				resBodyStr: resBodyStr,
+			})
+			return
+		}
 
 		// 创建自定义的 ResponseWriter 对象
 		lrw := &loggingResponseWriter{w, 0, new(bytes.Buffer)}
@@ -109,19 +171,16 @@ func main() {
 			}
 		}()
 
-		log.Printf("\n")
-		log.Printf("%s %s %s to %s from %s, Completed in %v", colorYellow("--->"), func() string {
-			if lrw.statusCode == 200 {
-				return colorGreen(fmt.Sprintf("[%d]", lrw.statusCode))
-			} else {
-				return colorRed(fmt.Sprintf("[%d]", lrw.statusCode))
-			}
-		}(), colorBlue(fmt.Sprintf("[%s]", r.Method)), colorYellow(r.URL.Path), colorBlue(ip), colorBlue(time.Since(start).String()))
-		log.Printf("     %s: %s", colorBlue("[header]"), colorGray(fmt.Sprintf("%v", r.Header)))
-		if reqBodyStr != "[no body]" {
-			log.Printf("     %s: %s", colorBlue("[body]"), colorGray(reqBodyStr))
-		}
-		log.Printf("%s %s: %s", colorYellow("<---"), colorBlue("[body]"), colorGray(strings.ReplaceAll(resBodyStr, "\n\n", "\n")))
+		serverLog(ServerLogParams{
+			statusCode: lrw.statusCode,
+			method:     r.Method,
+			path:       r.URL.Path,
+			ip:         ip,
+			reqHeader:  r.Header,
+			startTime:  start,
+			reqBodyStr: reqBodyStr,
+			resBodyStr: resBodyStr,
+		})
 	})
 	log.Println("server start at http://127.0.0.1:9394")
 	http.ListenAndServe(":9394", nil)
