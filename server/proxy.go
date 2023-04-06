@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"math/rand"
+	"os"
 
 	// "crypto/tls"
 	"fmt"
@@ -107,7 +109,22 @@ func serverLog(p ServerLogParams) {
 	log.Printf("%s %s: %s", colorYellow("<---"), colorBlue("[body]"), colorGray(strings.ReplaceAll(p.resBodyStr, "\n\n", "\n")))
 }
 
+func setUpLogger() {
+	// 创建一个文件，用于写入日志信息
+	logFile, err := os.OpenFile("copilot-proxy.log", os.O_CREATE|os.O_RDWR|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatal("Failed to open log file: ", err)
+	}
+	// defer logFile.Close()
+	// 创建一个 MultiWriter，用于同时将日志信息输出到标准错误流和文件中
+	mw := io.MultiWriter(os.Stdout, logFile)
+	// 设置 log 包的输出流为 MultiWriter
+	log.SetOutput(mw)
+}
+
 func main() {
+	setUpLogger()
+
 	// 如果你需要代理, 使用 transport 相关的这几行
 	// create transPort.
 	// clashUrl, _ := url.Parse("http://127.0.0.1:7890")
