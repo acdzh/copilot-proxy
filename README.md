@@ -69,6 +69,23 @@ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build proxy.go
 
 查找各个编辑器或 IDE 的 Copilot 插件地址, 替换其中的 api 地址为自己的服务地址. 目前仅支持 VSCode 与 JetBrains 的 Copilot 插件. 因为插件会更新, 插件每次更新后都要重新运行次程序. 如果发现失效, 也可以重新运行程序.
 
+修改内容如下:
+1. `copilot-agent/dist` 中的 js 文件, 替换 api 地址.
+2. `copilot-agent/bin` 中的二进制(不包括 windows 平台), 改为 `node ../dist/agent.js`.
+
+**VSCode 不需要使用此程序, 目前只需要在配置文件中增加如下配置即可**
+
+```json
+{
+  "github.copilot.advanced": {
+    "debug.testOverrideProxyUrl": "http://127.0.0.1:9394",
+    "debug.overrideProxyUrl": "http://127.0.0.1:9394"
+  }
+}
+```
+
+**一定要确保本地有 Node 环境, 否则插件不会生效. 如果没有 Node, 请不要使用该程序. 如果你运行了, 请使用 `-r` 来还原**
+
 ## 使用
 
 二进制文件可以从 release 下载.
@@ -76,16 +93,12 @@ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build proxy.go
 设置 api 地址:
 
 ```sh
-go run main.go -u "http://127.0.0.1:9394"
-# or
 ./copilot-proxy__macos -u "http://127.0.0.1:9394"
 ```
 
 恢复默认地址:
 
 ```sh
-go run main.go -r
-# or
 ./copilot-proxy__macos -r
 ```
 
@@ -94,6 +107,8 @@ go run main.go -r
 不放心 client 程序也可以自己去改, 给两个插件地址的例子, 其余的请举一反三:
 
 ```sh
-/Users/admin/.vscode/extensions/github.copilot-1.78.9758/dist/
-/Users/admin/Library/Application Support/JetBrains/WebStorm2022.1/plugins/github-copilot-intellij/copilot-agent/dist/
+/Users/admin/.vscode/extensions/github.copilot-1.78.9758/
+/Users/admin/Library/Application Support/Google/AndroidStudio2022.1/plugins/github-copilot-intellij/copilot-agent/
+/Users/admin/Library/Application Support/JetBrains/WebStorm2022.1/plugins/github-copilot-intellij/copilot-agent/
+/Users/admin/Library/Application Support/JetBrains/Toolbox/apps/WebStorm/ch-0/222.4167.31/WebStorm.app.plugins/github-copilot-intellij/copilot-agent/
 ```
